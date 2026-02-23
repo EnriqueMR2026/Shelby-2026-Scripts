@@ -7,10 +7,28 @@
 function ajustarDiferenciaEfectivo() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   var ui = SpreadsheetApp.getUi();
-
-  // --- 1. CALCULAR DINERO TEÓRICO ---
   var lastRow = sheet.getLastRow();
-  var valuesN = sheet.getRange(2, 14, lastRow - 1, 1).getValues();
+
+  // --- 1. UBICAR SEMANA ACTUAL PRIMERO ---
+  var today = new Date();
+  today.setHours(0,0,0,0);
+  var dataFechas = sheet.getRange(2, 1, lastRow - 1, 1).getValues(); 
+  var targetRowIndex = -1;
+  for (var i = 0; i < dataFechas.length; i++) {
+    var rowDate = new Date(dataFechas[i][0]);
+    rowDate.setHours(0,0,0,0);
+    if (rowDate <= today) {
+      targetRowIndex = i + 2;
+    } else {
+      break; 
+    }
+  }
+
+  if (targetRowIndex == -1) return;
+
+  // --- 2. CALCULAR DINERO TEÓRICO (SOLO HASTA SEMANA ACTUAL) ---
+  var numFilas = targetRowIndex - 1;
+  var valuesN = sheet.getRange(2, 14, numFilas, 1).getValues();
   
   var teorico = 0;
   for (var i = 0; i < valuesN.length; i++) {
@@ -21,49 +39,29 @@ function ajustarDiferenciaEfectivo() {
   }
   teorico = Math.round(teorico * 100) / 100;
 
-  // --- 2. SOLICITAR DINERO FÍSICO ---
+  // --- 3. SOLICITAR DINERO FÍSICO ---
   var promptMessage = 'Teórico: $' + teorico.toFixed(2) + '\n\n' +
                       '¿Cuánto dinero físico tienes realmente?';
-  
   var response = ui.prompt('Ajuste Spartan', promptMessage, ui.ButtonSet.OK_CANCEL);
 
   if (response.getSelectedButton() != ui.Button.OK) {
-    return; 
+    return;
   }
 
   var inputUsuario = response.getResponseText();
   var fisico = parseFloat(inputUsuario.replace(',', '.').trim());
 
   if (isNaN(fisico)) {
-    return; 
+    return;
   }
 
-  // --- 3. CALCULAR DIFERENCIA ---
+  // --- 4. CALCULAR DIFERENCIA ---
   var diferencia = teorico - fisico;
   diferencia = Math.round(diferencia * 100) / 100;
 
   if (diferencia === 0) {
-    return; 
+    return;
   }
-
-  // --- 4. UBICAR SEMANA ACTUAL ---
-  var today = new Date();
-  today.setHours(0,0,0,0);
-
-  var dataFechas = sheet.getRange(2, 1, lastRow - 1, 1).getValues(); 
-  var targetRowIndex = -1;
-
-  for (var i = 0; i < dataFechas.length; i++) {
-    var rowDate = new Date(dataFechas[i][0]);
-    rowDate.setHours(0,0,0,0);
-    if (rowDate <= today) {
-      targetRowIndex = i + 2; 
-    } else {
-      break; 
-    }
-  }
-
-  if (targetRowIndex == -1) return; 
 
   // --- 5. EJECUTAR AJUSTE EN COMIDA (Columna K) ---
   var cellK = sheet.getRange(targetRowIndex, 11);
@@ -80,7 +78,6 @@ function ajustarDiferenciaEfectivo() {
   else {
     var regex = /\+\(([^)]+)\)$/;
     var match = formula.match(regex);
-
     if (match) {
       var contenidoPrevio = match[1];
       var nuevoContenido = contenidoPrevio + "+" + diferencia;
